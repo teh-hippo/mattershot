@@ -21,8 +21,9 @@ lookup (see Privacy below).
 4. **Location** and **Item Number** are both optional and are remembered between scans. Use the
    **&minus;** / **+** buttons to adjust the number; it advances by one after each download. Clear
    the field to leave numbering out entirely.
-5. Tap **Download PNG** or **Download SVG**. On iOS, choose your OneDrive folder
-   (for example `pi/Matter`) when saving.
+5. Tap **Save PNG** or **Save SVG**. On iOS the share sheet opens, so you can choose
+   **Save to Files** and pick your OneDrive folder (for example `pi/Matter`) or send it to another
+   app. On desktop it downloads.
 
 Files are named `<Product>-<Location>-<Number>`, dropping any field you leave out. The number is
 zero-padded to two digits starting at `01`.
@@ -48,8 +49,12 @@ product name yourself.
 - [`jsQR`](https://github.com/cozmo/jsQR) reads QR codes from the camera or an image.
 - [`qrcode`](https://github.com/soldair/node-qrcode) regenerates the QR module matrix.
 - `label.js` composes the Matter-style label as a self-contained SVG; the PNG is rasterised from
-  that SVG in a canvas.
-- State (location, the running number, and the numbering toggle) is kept in `localStorage`.
+  that SVG in a canvas. The saved file is shared via the Web Share API on iOS, or downloaded.
+- State (location, the running number, and whether numbering is on) is kept in `localStorage`.
+
+The Matter logo is the official mark from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Logo_of_Matter_connectivity_standard.svg)
+(public domain).
 
 It is a static site with no build step. The two libraries are vendored in `vendor/`.
 

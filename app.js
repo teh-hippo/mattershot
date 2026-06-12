@@ -154,9 +154,28 @@ function regen() {
   current.previewUrl = URL.createObjectURL(new Blob([built.svg], { type: "image/svg+xml" }));
   el.labelImg.src = current.previewUrl;
 
+  current.pngBlob = null;
+  schedulePng();
+
   const ready = !!clean(el.product.value);
   el.dlPng.disabled = !ready;
   el.dlSvg.disabled = !ready;
+}
+
+// Pre-rasterise the PNG so the save tap can share it synchronously on iOS.
+let pngToken = 0;
+let pngTimer;
+function schedulePng() {
+  clearTimeout(pngTimer);
+  const token = ++pngToken;
+  const svg = current && current.svg, w = current && current.w, h = current && current.h;
+  if (!svg) return;
+  pngTimer = setTimeout(async () => {
+    try {
+      const blob = await svgToPng(svg, w, h, 3);
+      if (token === pngToken && current) current.pngBlob = blob;
+    } catch { /* will rasterise on demand */ }
+  }, 120);
 }
 
 function cleanup(item) {
@@ -210,25 +229,33 @@ function step(delta) {
 el.numMinus.addEventListener("click", () => step(-1));
 el.numPlus.addEventListener("click", () => step(1));
 
-// ---- downloads -------------------------------------------------------------
-el.dlSvg.addEventListener("click", () => {
-  if (!current || el.dlSvg.disabled) return;
-  downloadBlob(new Blob([current.svg], { type: "image/svg+xml" }), current.base + ".svg");
-  commit();
-});
-el.dlPng.addEventListener("click", async () => {
-  if (!current || el.dlPng.disabled) return;
-  el.dlPng.disabled = true;
-  try {
-    const blob = await svgToPng(current.svg, current.w, current.h, 3);
-    downloadBlob(blob, current.base + ".png");
-    commit();
-  } finally {
-    el.dlPng.disabled = !clean(el.product.value);
-  }
-});
+// ---- saving (iOS share sheet where available, download otherwise) ----------
+el.dlSvg.addEventListener("click", () => save("svg"));
+el.dlPng.addEventListener("click", () => save("png"));
 
-// Increment once per scanned item, after a successful download.
+async function save(kind) {
+  if (!current || !clean(el.product.value)) return;
+  let file;
+  if (kind === "svg") {
+    file = new File([current.svg], current.base + ".svg", { type: "image/svg+xml" });
+  } else {
+    const blob = current.pngBlob || (await svgToPng(current.svg, current.w, current.h, 3));
+    file = new File([blob], current.base + ".png", { type: "image/png" });
+  }
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: current.base });
+    } catch (err) {
+      if (err.name === "AbortError") return;   // cancelled: don't save or advance
+      downloadFile(file);                       // share failed: fall back to a download
+    }
+  } else {
+    downloadFile(file);
+  }
+  commit();
+}
+
+// Increment once per scanned item, after a successful save.
 function commit() {
   if (current && current.number != null && !current.committed) {
     current.committed = true;
@@ -236,10 +263,10 @@ function commit() {
   }
 }
 
-function downloadBlob(blob, name) {
-  const url = URL.createObjectURL(blob);
+function downloadFile(file) {
+  const url = URL.createObjectURL(file);
   const a = document.createElement("a");
-  a.href = url; a.download = name;
+  a.href = url; a.download = file.name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
