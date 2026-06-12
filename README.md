@@ -22,14 +22,14 @@ lookup (see Privacy below).
    registry where available; for HomeKit, it is pre-filled with the accessory category (for example
    Lightbulb). Edit it if you like. HomeKit also shows a **Manufacturer** field, which is included in
    the file name.
-4. **Location** and **Item Number** are both optional and are remembered between scans. Use the
+4. **Label** and **Number** are both optional and are remembered between scans. Use the
    **&minus;** / **+** buttons to adjust the number; it advances by one after each download. Clear
    the field to leave numbering out entirely.
 5. Tap **Save PNG** or **Save SVG**. On iOS the share sheet opens, so you can choose
    **Save to Files** and pick your OneDrive folder (for example `pi/Matter`) or send it to another
    app. On desktop it downloads.
 
-Files are named `<Product>-<Location>-<Number>`, dropping any field you leave out; HomeKit files are
+Files are named `<Product>-<Label>-<Number>`, dropping any field you leave out; HomeKit files are
 prefixed with `<Manufacturer>` when you set it. The number is zero-padded to two digits starting at
 `01`.
 
