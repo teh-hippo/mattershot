@@ -57,3 +57,9 @@ Serve the folder over HTTP (a secure context is needed for the camera; `localhos
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
+
+Run the payload decoder tests with [Bun](https://bun.sh):
+
+```sh
+bun test
+```
