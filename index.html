@@ -11,7 +11,7 @@
 <body>
   <header>
     <h1>Mattershot</h1>
-    <p class="tag">Turns physical Matter codes into high-res digital variants.</p>
+    <p class="tag">Back up and digitise physical Matter codes</p>
   </header>
 
   <main>
@@ -37,14 +37,15 @@
         <input id="product" type="text" placeholder="e.g. Eve Energy" autocomplete="off">
       </div>
       <div class="field">
-        <label for="location">Location <span class="opt">optional</span></label>
+        <label for="location">Location <span class="opt">(optional)</span></label>
         <input id="location" type="text" placeholder="e.g. Kitchen" autocomplete="off" autocapitalize="words">
       </div>
-      <div class="field numbering">
-        <label class="check"><input id="numberOn" type="checkbox"><span>Number items</span></label>
-        <div id="itemNumberWrap" class="inline-num">
-          <label for="itemNumber">Item Number</label>
-          <input id="itemNumber" type="number" min="0" step="1" inputmode="numeric">
+      <div class="field">
+        <label for="itemNumber">Item Number <span class="opt">(optional)</span></label>
+        <div class="stepper">
+          <button type="button" class="step" id="numMinus" aria-label="Decrease item number">&minus;</button>
+          <input id="itemNumber" type="number" min="0" step="1" inputmode="numeric" placeholder="&mdash;">
+          <button type="button" class="step" id="numPlus" aria-label="Increase item number">+</button>
         </div>
       </div>
 
@@ -52,7 +53,6 @@
         <button id="dlPng" class="btn primary" type="button">Download PNG</button>
         <button id="dlSvg" class="btn primary" type="button">Download SVG</button>
       </div>
-      <p id="saveMsg" class="msg ok" hidden></p>
     </section>
   </main>
 

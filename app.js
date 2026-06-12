@@ -1,7 +1,7 @@
 import { parseMatterPayload, manualPairingCode, formatPairingCode } from "./matter.js";
 import { buildLabelSVG } from "./label.js";
 
-const LS = { location: "mattershot.location", next: "mattershot.nextNumber", numbering: "mattershot.numbering" };
+const LS = { location: "mattershot.location", next: "mattershot.nextNumber" };
 const DCL = "https://on.dcl.csa-iot.org/dcl/model/models";
 
 const $ = (id) => document.getElementById(id);
@@ -10,26 +10,23 @@ const el = {
   scanArea: $("scanArea"), video: $("video"), cancelScan: $("cancelScan"), scanMsg: $("scanMsg"),
   result: $("result"), labelImg: $("labelImg"),
   product: $("product"), location: $("location"),
-  numbering: document.querySelector(".numbering"), numberOn: $("numberOn"), itemNumber: $("itemNumber"),
-  dlPng: $("dlPng"), dlSvg: $("dlSvg"), saveMsg: $("saveMsg"),
+  itemNumber: $("itemNumber"), numMinus: $("numMinus"), numPlus: $("numPlus"),
+  dlPng: $("dlPng"), dlSvg: $("dlSvg"),
 };
 
 let current = null;
 let scanStream = null;
 
-// ---- persisted state -------------------------------------------------------
-const loadNext = () => Math.max(0, parseInt(localStorage.getItem(LS.next) || "1", 10) || 1);
-const saveNext = (n) => localStorage.setItem(LS.next, String(n));
+// ---- numbering state -------------------------------------------------------
+// localStorage `next`: "" means numbering is off; otherwise the next number.
 const pad = (n) => String(n).padStart(2, "0");
+const rawNext = () => { const v = localStorage.getItem(LS.next); return v === null ? "1" : v; };
+const numberingOn = () => rawNext() !== "";
+const nextNum = () => (numberingOn() ? Math.max(0, parseInt(rawNext(), 10) || 0) : null);
+const setNext = (n) => localStorage.setItem(LS.next, n == null ? "" : String(n));
 
 el.location.value = localStorage.getItem(LS.location) || "";
-el.numberOn.checked = localStorage.getItem(LS.numbering) !== "off";
-el.itemNumber.value = loadNext();
-applyNumberingUI();
-
-function applyNumberingUI() {
-  el.numbering.classList.toggle("off", !el.numberOn.checked);
-}
+el.itemNumber.value = numberingOn() ? nextNum() : "";
 
 // ---- helpers ---------------------------------------------------------------
 function clean(s) {
@@ -39,17 +36,13 @@ function fileBase() {
   const parts = [clean(el.product.value) || "Unknown"];
   const loc = clean(el.location.value);
   if (loc) parts.push(loc);
-  if (el.numberOn.checked && current && current.number != null) parts.push(pad(current.number));
+  if (current && current.number != null) parts.push(pad(current.number));
   return parts.join("-");
 }
 function scanMsg(text, isError) {
   el.scanMsg.hidden = !text;
   el.scanMsg.textContent = text || "";
   el.scanMsg.className = "msg" + (isError ? " err" : "");
-}
-function showSave(text) {
-  el.saveMsg.hidden = false;
-  el.saveMsg.textContent = text;
 }
 
 // ---- scanning --------------------------------------------------------------
@@ -132,10 +125,9 @@ async function handlePayload(text) {
   const code = manualPairingCode(parsed);
   current = {
     raw: parsed.raw, pairingFmt: formatPairingCode(code),
-    number: el.numberOn.checked ? loadNext() : null, committed: false, previewUrl: null,
+    number: nextNum(), committed: false, previewUrl: null,
   };
-  if (el.numberOn.checked) el.itemNumber.value = current.number;
-  el.saveMsg.hidden = true;
+  el.itemNumber.value = current.number == null ? "" : current.number;
   el.result.hidden = false;
   el.result.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -150,7 +142,7 @@ async function handlePayload(text) {
 
 function regen() {
   if (!current) return;
-  const itemLabel = el.numberOn.checked && current.number != null ? "#" + pad(current.number) : "";
+  const itemLabel = current.number != null ? "#" + pad(current.number) : "";
   const built = buildLabelSVG({
     qrText: current.raw, productName: el.product.value, location: el.location.value,
     itemLabel, pairingCode: current.pairingFmt,
@@ -165,7 +157,6 @@ function regen() {
   const ready = !!clean(el.product.value);
   el.dlPng.disabled = !ready;
   el.dlSvg.disabled = !ready;
-  el.saveMsg.hidden = true;
 }
 
 function cleanup(item) {
@@ -189,20 +180,35 @@ el.location.addEventListener("input", () => {
   localStorage.setItem(LS.location, el.location.value);
   regen();
 });
-el.itemNumber.addEventListener("input", () => {
-  const n = Math.max(0, parseInt(el.itemNumber.value || "1", 10) || 1);
-  if (current) { current.number = n; if (!current.committed) saveNext(n); }
-  regen();
-});
-el.numberOn.addEventListener("change", () => {
-  localStorage.setItem(LS.numbering, el.numberOn.checked ? "on" : "off");
-  applyNumberingUI();
-  if (current && el.numberOn.checked && current.number == null) {
-    current.number = loadNext();
-    el.itemNumber.value = current.number;
+
+function onItemInput() {
+  const raw = el.itemNumber.value.trim();
+  if (raw === "") {
+    setNext(null);
+    if (current) current.number = null;
+  } else {
+    const n = Math.max(0, parseInt(raw, 10) || 0);
+    setNext(n);
+    if (current && !current.committed) current.number = n;
   }
   regen();
-});
+}
+el.itemNumber.addEventListener("input", onItemInput);
+
+function step(delta) {
+  const raw = el.itemNumber.value.trim();
+  let n;
+  if (raw === "") {
+    if (delta < 0) return;            // nothing to decrement from
+    n = nextNum() != null ? nextNum() : 1;
+  } else {
+    n = Math.max(0, (parseInt(raw, 10) || 0) + delta);
+  }
+  el.itemNumber.value = n;
+  onItemInput();
+}
+el.numMinus.addEventListener("click", () => step(-1));
+el.numPlus.addEventListener("click", () => step(1));
 
 // ---- downloads -------------------------------------------------------------
 el.dlSvg.addEventListener("click", () => {
@@ -217,19 +223,16 @@ el.dlPng.addEventListener("click", async () => {
     const blob = await svgToPng(current.svg, current.w, current.h, 3);
     downloadBlob(blob, current.base + ".png");
     commit();
-  } catch (err) {
-    showSave("PNG export failed: " + err.message);
   } finally {
     el.dlPng.disabled = !clean(el.product.value);
   }
 });
 
+// Increment once per scanned item, after a successful download.
 function commit() {
-  if (el.numberOn.checked && current.number != null) {
-    if (!current.committed) { current.committed = true; saveNext(current.number + 1); }
-    showSave(`Saved ${current.base}. Next item: ${pad(loadNext())}.`);
-  } else {
-    showSave(`Saved ${current.base}.`);
+  if (current && current.number != null && !current.committed) {
+    current.committed = true;
+    setNext(current.number + 1);
   }
 }
 

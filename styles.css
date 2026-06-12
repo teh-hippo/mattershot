@@ -69,13 +69,13 @@ header h1 { margin: 0 0 2px; font-size: 1.7rem; letter-spacing: -0.01em; }
 .btn[disabled] { opacity: 0.45; pointer-events: none; }
 
 /* Subtle secondary actions under the scan button */
-.subtle { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 12px 0 0; }
+.subtle { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 10px; color: var(--muted); font-size: 0.9rem; margin: 12px 0 0; }
 .linklike {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--muted); font: inherit; text-decoration: underline; text-underline-offset: 2px;
 }
 .linklike:hover { color: var(--primary); }
-.subtle .dot { margin: 0 8px; }
+.subtle .dot { opacity: 0.5; }
 
 /* Scanning */
 #scanArea { margin-top: 12px; }
@@ -106,12 +106,23 @@ input[type=text], input[type=number] {
 }
 input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 
-.numbering { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
-.check { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 1rem; color: var(--text); cursor: pointer; }
-.check input { width: 20px; height: 20px; accent-color: var(--primary); }
-.inline-num { flex: 1; min-width: 130px; }
-.inline-num label { margin-bottom: 5px; }
-.numbering.off .inline-num { display: none; }
+.stepper { display: flex; align-items: stretch; gap: 8px; }
+.stepper input { flex: 1; text-align: center; }
+.step {
+  flex: 0 0 52px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.step:active { transform: translateY(1px); }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 .row { display: flex; gap: 10px; margin-top: 4px; }
 .row > * { flex: 1; }

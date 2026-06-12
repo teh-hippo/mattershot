@@ -20,14 +20,19 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
 }
 
-// 8-point sparkle approximating the Matter brand mark.
-function sparkle(cx, cy, R) {
-  const pts = 8, inner = R * 0.42;
+// 8-point sparkle approximating the Matter brand mark: sharp tips, concave sides.
+function matterMark(cx, cy, R) {
+  const cr = R * 0.12;
   let d = "";
-  for (let i = 0; i < pts * 2; i++) {
-    const r = i % 2 === 0 ? R : inner;
-    const a = (Math.PI / pts) * i - Math.PI / 2;
-    d += (i ? "L" : "M") + (cx + r * Math.cos(a)).toFixed(2) + "," + (cy + r * Math.sin(a)).toFixed(2);
+  for (let i = 0; i < 8; i++) {
+    const a0 = (Math.PI / 4) * i - Math.PI / 2;
+    const a1 = (Math.PI / 4) * (i + 1) - Math.PI / 2;
+    const am = (a0 + a1) / 2;
+    const p0x = cx + R * Math.cos(a0), p0y = cy + R * Math.sin(a0);
+    const p1x = cx + R * Math.cos(a1), p1y = cy + R * Math.sin(a1);
+    const qx = cx + cr * Math.cos(am), qy = cy + cr * Math.sin(am);
+    d += (i ? "" : `M${p0x.toFixed(2)},${p0y.toFixed(2)}`) +
+      `Q${qx.toFixed(2)},${qy.toFixed(2)} ${p1x.toFixed(2)},${p1y.toFixed(2)}`;
   }
   return d + "Z";
 }
@@ -53,7 +58,7 @@ export function buildLabelSVG({ qrText, productName, location, itemLabel, pairin
   const groupW = markR * 2 + gap + wordW;
   const gx = cx - groupW / 2;
   const brandY = y + markR;
-  parts.push(`<path d="${sparkle(gx + markR, brandY, markR)}" fill="#101418"/>`);
+  parts.push(`<path d="${matterMark(gx + markR, brandY, markR)}" fill="#101418"/>`);
   parts.push(`<text x="${(gx + markR * 2 + gap).toFixed(1)}" y="${brandY}" font-family="${SANS}" font-size="${wordSize}" font-weight="500" fill="#101418" dominant-baseline="central">${word}</text>`);
   y = brandY + markR + 20;
 

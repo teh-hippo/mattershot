@@ -1,6 +1,6 @@
 # Mattershot
 
-Turns physical Matter codes into high-res digital variants.
+Back up and digitise physical Matter codes.
 
 Scan the QR code on a Matter device with your phone. Mattershot decodes the `MT:` onboarding
 payload and regenerates it as a clean, Matter-style label, so the backup is lossless and stays
@@ -18,8 +18,9 @@ lookup (see Privacy below).
    subtle **photo / image** or **enter code manually** options.
 3. The label appears straight away. The product name is filled in from the public device
    registry where available; edit it if you like.
-4. **Location** is optional and is remembered between scans. **Number items** is an optional
-   toggle; when on, the **Item Number** advances by one after each download.
+4. **Location** and **Item Number** are both optional and are remembered between scans. Use the
+   **&minus;** / **+** buttons to adjust the number; it advances by one after each download. Clear
+   the field to leave numbering out entirely.
 5. Tap **Download PNG** or **Download SVG**. On iOS, choose your OneDrive folder
    (for example `pi/Matter`) when saving.
 
