@@ -11,7 +11,7 @@
 <body>
   <header>
     <h1>Mattershot</h1>
-    <p class="tag">Back up and digitise physical Matter codes</p>
+    <p class="tag">Back up and digitise physical Matter and HomeKit codes</p>
   </header>
 
   <main>
@@ -30,8 +30,12 @@
     </section>
 
     <section class="card" id="result" hidden>
-      <div class="labelwrap"><img id="labelImg" alt="Matter label preview"></div>
+      <div class="labelwrap"><img id="labelImg" alt="Label preview"></div>
 
+      <div class="field" id="manufacturerField" hidden>
+        <label for="manufacturer">Manufacturer</label>
+        <input id="manufacturer" type="text" placeholder="e.g. Eve" autocomplete="off" autocapitalize="words">
+      </div>
       <div class="field">
         <label for="product">Product</label>
         <input id="product" type="text" placeholder="e.g. Eve Energy" autocomplete="off">

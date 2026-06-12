@@ -51,7 +51,7 @@ export function parseMatterPayload(text) {
   const discovery = read(8);
   const discriminator = read(12);
   const passcode = read(27);
-  return { version, vendorId, productId, customFlow, discovery, discriminator, passcode, raw: t };
+  return { type: "matter", version, vendorId, productId, customFlow, discovery, discriminator, passcode, raw: t };
 }
 
 export function hex4(n) {

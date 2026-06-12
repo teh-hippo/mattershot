@@ -1,4 +1,5 @@
 import { parseMatterPayload, manualPairingCode, formatPairingCode } from "./matter.js";
+import { parseHomeKitPayload } from "./homekit.js";
 import { buildLabelSVG } from "./label.js";
 
 const LS = { location: "mattershot.location", next: "mattershot.nextNumber" };
@@ -9,6 +10,7 @@ const el = {
   scanBtn: $("scanBtn"), fileInput: $("fileInput"), pasteBtn: $("pasteBtn"),
   scanArea: $("scanArea"), video: $("video"), cancelScan: $("cancelScan"), scanMsg: $("scanMsg"),
   result: $("result"), labelImg: $("labelImg"),
+  manufacturer: $("manufacturer"), manufacturerField: $("manufacturerField"),
   product: $("product"), location: $("location"),
   itemNumber: $("itemNumber"), numMinus: $("numMinus"), numPlus: $("numPlus"),
   dlPng: $("dlPng"), dlSvg: $("dlSvg"),
@@ -33,7 +35,12 @@ function clean(s) {
   return String(s || "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim();
 }
 function fileBase() {
-  const parts = [clean(el.product.value) || "Unknown"];
+  const parts = [];
+  if (current && current.type === "homekit") {
+    const mfr = clean(el.manufacturer.value);
+    if (mfr) parts.push(mfr);
+  }
+  parts.push(clean(el.product.value) || "Unknown");
   const loc = clean(el.location.value);
   if (loc) parts.push(loc);
   if (current && current.number != null) parts.push(pad(current.number));
@@ -49,7 +56,7 @@ function scanMsg(text, isError) {
 el.scanBtn.addEventListener("click", startCamera);
 el.cancelScan.addEventListener("click", stopCamera);
 el.pasteBtn.addEventListener("click", () => {
-  const v = prompt("Paste the Matter code (starts with MT:)");
+  const v = prompt("Paste a Matter (MT:) or HomeKit (X-HM://) code");
   if (v) handlePayload(v);
 });
 el.fileInput.addEventListener("change", async (e) => {
@@ -115,21 +122,37 @@ async function decodeImageFile(file) {
 }
 
 // ---- decode + label --------------------------------------------------------
+function parsePayload(text) {
+  return String(text || "").trim().startsWith("X-HM://")
+    ? parseHomeKitPayload(text)
+    : parseMatterPayload(text);
+}
+
 async function handlePayload(text) {
   let parsed;
-  try { parsed = parseMatterPayload(text); }
+  try { parsed = parsePayload(text); }
   catch (err) { scanMsg(err.message, true); return; }
   scanMsg("");
   if (current) cleanup(current);
 
-  const code = manualPairingCode(parsed);
   current = {
-    raw: parsed.raw, pairingFmt: formatPairingCode(code),
+    type: parsed.type, raw: parsed.raw, setupCode: parsed.setupCode,
+    pairingFmt: parsed.type === "matter" ? formatPairingCode(manualPairingCode(parsed)) : "",
     number: nextNum(), committed: false, previewUrl: null,
   };
   el.itemNumber.value = current.number == null ? "" : current.number;
+  el.manufacturerField.hidden = parsed.type !== "homekit";
   el.result.hidden = false;
   el.result.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  if (parsed.type === "homekit") {
+    // No public registry for HomeKit: pre-fill the category as a hint instead.
+    el.manufacturer.value = "";
+    el.product.placeholder = "e.g. Eve Energy";
+    el.product.value = parsed.categoryName;
+    regen();
+    return;
+  }
 
   el.product.value = "";
   el.product.placeholder = "Looking up product\u2026";
@@ -144,8 +167,10 @@ function regen() {
   if (!current) return;
   const itemLabel = current.number != null ? "#" + pad(current.number) : "";
   const built = buildLabelSVG({
-    qrText: current.raw, productName: el.product.value, location: el.location.value,
-    itemLabel, pairingCode: current.pairingFmt,
+    type: current.type, qrText: current.raw,
+    productName: el.product.value, location: el.location.value, itemLabel,
+    pairingCode: current.pairingFmt,
+    setupCode: current.setupCode, manufacturer: el.manufacturer.value,
   });
   current.svg = built.svg; current.w = built.width; current.h = built.height;
   current.base = fileBase();
@@ -194,6 +219,7 @@ async function lookupProduct(vid, pid) {
 }
 
 // ---- field reactivity ------------------------------------------------------
+el.manufacturer.addEventListener("input", regen);
 el.product.addEventListener("input", regen);
 el.location.addEventListener("input", () => {
   localStorage.setItem(LS.location, el.location.value);
