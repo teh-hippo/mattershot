@@ -11,60 +11,50 @@
 <body>
   <header>
     <h1>Mattershot</h1>
-    <p class="tag">Back up a Matter QR code as a crisp, re-scannable image.</p>
+    <p class="tag">Turns physical Matter codes into high-res digital variants.</p>
   </header>
 
   <main>
     <section class="card">
-      <div class="field">
-        <label for="location">Location</label>
-        <input id="location" type="text" placeholder="e.g. Kitchen" autocomplete="off" autocapitalize="words">
-      </div>
-      <div class="field">
-        <label for="nextNumber">Next number</label>
-        <input id="nextNumber" type="number" min="0" step="1" inputmode="numeric" value="1">
-      </div>
-    </section>
-
-    <section class="card">
-      <button id="scanBtn" class="btn primary">Scan QR code</button>
-      <div class="row">
-        <label class="btn ghost file">
-          Photo / image
-          <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
-        </label>
-        <button id="pasteBtn" class="btn ghost">Paste MT: code</button>
-      </div>
+      <button id="scanBtn" class="btn primary big">Scan QR code</button>
       <div id="scanArea" hidden>
         <video id="video" playsinline muted autoplay></video>
         <button id="cancelScan" class="btn ghost">Cancel</button>
       </div>
+      <p class="subtle">
+        <label class="linklike">photo / image<input id="fileInput" type="file" accept="image/*" capture="environment" hidden></label>
+        <span class="dot" aria-hidden="true">&middot;</span>
+        <button id="pasteBtn" class="linklike" type="button">enter code manually</button>
+      </p>
       <p id="scanMsg" class="msg" hidden></p>
     </section>
 
     <section class="card" id="result" hidden>
-      <div class="qrwrap"><canvas id="qrCanvas" aria-label="Regenerated Matter QR code"></canvas></div>
-      <p id="decodeInfo" class="info"></p>
+      <div class="labelwrap"><img id="labelImg" alt="Matter label preview"></div>
+
       <div class="field">
         <label for="product">Product</label>
         <input id="product" type="text" placeholder="e.g. Eve Energy" autocomplete="off">
       </div>
-      <p class="filename">Saves as<br><code id="fnPng"></code><br><code id="fnSvg"></code></p>
-      <button id="saveBtn" class="btn primary">Save backup</button>
+      <div class="field">
+        <label for="location">Location <span class="opt">optional</span></label>
+        <input id="location" type="text" placeholder="e.g. Kitchen" autocomplete="off" autocapitalize="words">
+      </div>
+      <div class="field numbering">
+        <label class="check"><input id="numberOn" type="checkbox"><span>Number items</span></label>
+        <div id="itemNumberWrap" class="inline-num">
+          <label for="itemNumber">Item Number</label>
+          <input id="itemNumber" type="number" min="0" step="1" inputmode="numeric">
+        </div>
+      </div>
+
       <div class="row">
-        <a id="dlPng" class="btn ghost" download>Download PNG</a>
-        <a id="dlSvg" class="btn ghost" download>Download SVG</a>
+        <button id="dlPng" class="btn primary" type="button">Download PNG</button>
+        <button id="dlSvg" class="btn primary" type="button">Download SVG</button>
       </div>
       <p id="saveMsg" class="msg ok" hidden></p>
-      <button id="nextBtn" class="btn link">Scan next</button>
     </section>
   </main>
-
-  <footer>
-    <p>Everything runs on your device. Product names are looked up from the public
-      <a href="https://webui.dcl.csa-iot.org/" target="_blank" rel="noopener">CSA DCL</a>.
-      <a href="https://github.com/teh-hippo/mattershot" target="_blank" rel="noopener">Source</a>.</p>
-  </footer>
 
   <script src="vendor/jsQR.js"></script>
   <script src="vendor/qrcode.js"></script>

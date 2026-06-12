@@ -1,66 +1,55 @@
-import { parseMatterPayload, hex4 } from "./matter.js";
+import { parseMatterPayload, manualPairingCode, formatPairingCode } from "./matter.js";
+import { buildLabelSVG } from "./label.js";
 
-const QR_OPTS = { errorCorrectionLevel: "M", margin: 4 };
-const PNG_WIDTH = 1024;
-const LS = { location: "mattershot.location", next: "mattershot.nextNumber" };
+const LS = { location: "mattershot.location", next: "mattershot.nextNumber", numbering: "mattershot.numbering" };
 const DCL = "https://on.dcl.csa-iot.org/dcl/model/models";
 
 const $ = (id) => document.getElementById(id);
 const el = {
-  location: $("location"), nextNumber: $("nextNumber"),
   scanBtn: $("scanBtn"), fileInput: $("fileInput"), pasteBtn: $("pasteBtn"),
   scanArea: $("scanArea"), video: $("video"), cancelScan: $("cancelScan"), scanMsg: $("scanMsg"),
-  result: $("result"), qrCanvas: $("qrCanvas"), decodeInfo: $("decodeInfo"),
-  product: $("product"), fnPng: $("fnPng"), fnSvg: $("fnSvg"),
-  saveBtn: $("saveBtn"), dlPng: $("dlPng"), dlSvg: $("dlSvg"),
-  saveMsg: $("saveMsg"), nextBtn: $("nextBtn"),
+  result: $("result"), labelImg: $("labelImg"),
+  product: $("product"), location: $("location"),
+  numbering: document.querySelector(".numbering"), numberOn: $("numberOn"), itemNumber: $("itemNumber"),
+  dlPng: $("dlPng"), dlSvg: $("dlSvg"), saveMsg: $("saveMsg"),
 };
 
-let current = null;        // { raw, vid, pid, number, committed, pngUrl, svgUrl }
+let current = null;
 let scanStream = null;
 
 // ---- persisted state -------------------------------------------------------
-function loadNext() { return Math.max(0, parseInt(localStorage.getItem(LS.next) || "1", 10) || 1); }
-function saveNext(n) { localStorage.setItem(LS.next, String(n)); }
-function pad(n) { return String(n).padStart(2, "0"); }
+const loadNext = () => Math.max(0, parseInt(localStorage.getItem(LS.next) || "1", 10) || 1);
+const saveNext = (n) => localStorage.setItem(LS.next, String(n));
+const pad = (n) => String(n).padStart(2, "0");
 
 el.location.value = localStorage.getItem(LS.location) || "";
-el.nextNumber.value = loadNext();
-el.location.addEventListener("input", () => {
-  localStorage.setItem(LS.location, el.location.value);
-  refreshNames();
-});
-el.nextNumber.addEventListener("input", () => {
-  const n = Math.max(0, parseInt(el.nextNumber.value || "1", 10) || 1);
-  saveNext(n);
-  if (current && !current.committed) current.number = n;
-  refreshNames();
-});
+el.numberOn.checked = localStorage.getItem(LS.numbering) !== "off";
+el.itemNumber.value = loadNext();
+applyNumberingUI();
 
-// ---- filename --------------------------------------------------------------
+function applyNumberingUI() {
+  el.numbering.classList.toggle("off", !el.numberOn.checked);
+}
+
+// ---- helpers ---------------------------------------------------------------
 function clean(s) {
   return String(s || "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim();
 }
 function fileBase() {
-  const product = clean(el.product.value) || "Unknown";
-  const location = clean(el.location.value) || "Unknown";
-  const num = pad(current ? current.number : loadNext());
-  return `${product}-${location}-${num}`;
+  const parts = [clean(el.product.value) || "Unknown"];
+  const loc = clean(el.location.value);
+  if (loc) parts.push(loc);
+  if (el.numberOn.checked && current && current.number != null) parts.push(pad(current.number));
+  return parts.join("-");
 }
-function refreshNames() {
-  if (!current) return;
-  const base = fileBase();
-  el.fnPng.textContent = base + ".png";
-  el.fnSvg.textContent = base + ".svg";
-  el.dlPng.download = base + ".png";
-  el.dlSvg.download = base + ".svg";
-}
-
-// ---- messaging -------------------------------------------------------------
 function scanMsg(text, isError) {
   el.scanMsg.hidden = !text;
   el.scanMsg.textContent = text || "";
   el.scanMsg.className = "msg" + (isError ? " err" : "");
+}
+function showSave(text) {
+  el.saveMsg.hidden = false;
+  el.saveMsg.textContent = text;
 }
 
 // ---- scanning --------------------------------------------------------------
@@ -79,13 +68,13 @@ el.fileInput.addEventListener("change", async (e) => {
 async function startCamera() {
   scanMsg("");
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    scanMsg("Camera not available. Use Photo / image or Paste instead.", true);
+    scanMsg("Camera not available. Use photo / image or enter the code instead.", true);
     return;
   }
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-  } catch (err) {
-    scanMsg("Camera permission denied. Use Photo / image or Paste instead.", true);
+  } catch {
+    scanMsg("Camera permission denied. Use photo / image or enter the code instead.", true);
     return;
   }
   el.video.srcObject = scanStream;
@@ -110,17 +99,13 @@ function scanTick() {
     ctx.drawImage(v, 0, 0, c.width, c.height);
     const img = ctx.getImageData(0, 0, c.width, c.height);
     const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
-    if (code && code.data) {
-      stopCamera();
-      handlePayload(code.data);
-      return;
-    }
+    if (code && code.data) { stopCamera(); handlePayload(code.data); return; }
   }
   requestAnimationFrame(scanTick);
 }
 
 async function decodeImageFile(file) {
-  scanMsg("Reading image...");
+  scanMsg("Reading image\u2026");
   try {
     const bitmap = await createImageBitmap(file);
     const c = document.createElement("canvas");
@@ -130,127 +115,147 @@ async function decodeImageFile(file) {
     const img = ctx.getImageData(0, 0, c.width, c.height);
     const code = jsQR(img.data, img.width, img.height);
     if (code && code.data) { scanMsg(""); handlePayload(code.data); }
-    else scanMsg("No QR code found in that image. Try again or paste the MT: code.", true);
+    else scanMsg("No QR code found in that image. Try again or enter the code.", true);
   } catch (err) {
     scanMsg("Could not read that image. " + err.message, true);
   }
 }
 
-// ---- decode + regenerate ---------------------------------------------------
+// ---- decode + label --------------------------------------------------------
 async function handlePayload(text) {
   let parsed;
-  try {
-    parsed = parseMatterPayload(text);
-  } catch (err) {
-    scanMsg(err.message, true);
-    return;
-  }
+  try { parsed = parseMatterPayload(text); }
+  catch (err) { scanMsg(err.message, true); return; }
   scanMsg("");
-  if (current) revokeUrls(current);
-  current = { raw: parsed.raw, vid: parsed.vendorId, pid: parsed.productId, number: loadNext(), committed: false };
+  if (current) cleanup(current);
 
-  el.decodeInfo.textContent = `Vendor ${hex4(parsed.vendorId)} \u00b7 Product ${hex4(parsed.productId)}`;
+  const code = manualPairingCode(parsed);
+  current = {
+    raw: parsed.raw, pairingFmt: formatPairingCode(code),
+    number: el.numberOn.checked ? loadNext() : null, committed: false, previewUrl: null,
+  };
+  if (el.numberOn.checked) el.itemNumber.value = current.number;
   el.saveMsg.hidden = true;
-
-  await renderQr(parsed.raw);
   el.result.hidden = false;
   el.result.scrollIntoView({ behavior: "smooth", block: "start" });
 
   el.product.value = "";
   el.product.placeholder = "Looking up product\u2026";
-  refreshNames();
+  regen();
 
   const name = await lookupProduct(parsed.vendorId, parsed.productId);
   el.product.placeholder = "e.g. Eve Energy";
-  if (name && !el.product.value) el.product.value = name;
-  refreshNames();
+  if (name && !el.product.value) { el.product.value = name; regen(); }
 }
 
-async function renderQr(payload) {
-  await QRCode.toCanvas(el.qrCanvas, payload, { ...QR_OPTS, width: PNG_WIDTH });
-  const pngBlob = await new Promise((res) => el.qrCanvas.toBlob(res, "image/png"));
-  const svgStr = await QRCode.toString(payload, { ...QR_OPTS, type: "svg" });
-  const svgBlob = new Blob([svgStr], { type: "image/svg+xml" });
-  current.pngBlob = pngBlob;
-  current.svgBlob = svgBlob;
-  current.pngUrl = URL.createObjectURL(pngBlob);
-  current.svgUrl = URL.createObjectURL(svgBlob);
-  el.dlPng.href = current.pngUrl;
-  el.dlSvg.href = current.svgUrl;
+function regen() {
+  if (!current) return;
+  const itemLabel = el.numberOn.checked && current.number != null ? "#" + pad(current.number) : "";
+  const built = buildLabelSVG({
+    qrText: current.raw, productName: el.product.value, location: el.location.value,
+    itemLabel, pairingCode: current.pairingFmt,
+  });
+  current.svg = built.svg; current.w = built.width; current.h = built.height;
+  current.base = fileBase();
+
+  if (current.previewUrl) URL.revokeObjectURL(current.previewUrl);
+  current.previewUrl = URL.createObjectURL(new Blob([built.svg], { type: "image/svg+xml" }));
+  el.labelImg.src = current.previewUrl;
+
+  const ready = !!clean(el.product.value);
+  el.dlPng.disabled = !ready;
+  el.dlSvg.disabled = !ready;
+  el.saveMsg.hidden = true;
 }
 
-function revokeUrls(item) {
-  if (item.pngUrl) URL.revokeObjectURL(item.pngUrl);
-  if (item.svgUrl) URL.revokeObjectURL(item.svgUrl);
+function cleanup(item) {
+  if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
 }
 
 async function lookupProduct(vid, pid) {
   try {
     const r = await fetch(`${DCL}/${vid}/${pid}`, { mode: "cors" });
     if (!r.ok) return null;
-    const j = await r.json();
-    const m = j && j.model;
+    const m = (await r.json()).model;
     return (m && (m.productName || m.productLabel)) || null;
   } catch {
     return null;
   }
 }
 
-// ---- save ------------------------------------------------------------------
-el.product.addEventListener("input", refreshNames);
-
-el.saveBtn.addEventListener("click", async () => {
-  if (!current) return;
-  if (!clean(el.product.value)) { showSave("Enter a product name first.", true); return; }
-  const base = fileBase();
-  const pngFile = new File([current.pngBlob], base + ".png", { type: "image/png" });
-  const svgFile = new File([current.svgBlob], base + ".svg", { type: "image/svg+xml" });
-
-  let shared = false;
-  if (navigator.canShare) {
-    let files = null;
-    if (navigator.canShare({ files: [pngFile, svgFile] })) files = [pngFile, svgFile];
-    else if (navigator.canShare({ files: [pngFile] })) files = [pngFile];
-    if (files) {
-      try { await navigator.share({ files, title: "Matter QR backup", text: base }); shared = true; }
-      catch (err) { if (err.name === "AbortError") return; }
-    }
+// ---- field reactivity ------------------------------------------------------
+el.product.addEventListener("input", regen);
+el.location.addEventListener("input", () => {
+  localStorage.setItem(LS.location, el.location.value);
+  regen();
+});
+el.itemNumber.addEventListener("input", () => {
+  const n = Math.max(0, parseInt(el.itemNumber.value || "1", 10) || 1);
+  if (current) { current.number = n; if (!current.committed) saveNext(n); }
+  regen();
+});
+el.numberOn.addEventListener("change", () => {
+  localStorage.setItem(LS.numbering, el.numberOn.checked ? "on" : "off");
+  applyNumberingUI();
+  if (current && el.numberOn.checked && current.number == null) {
+    current.number = loadNext();
+    el.itemNumber.value = current.number;
   }
-  if (!shared) { triggerDownload(el.dlPng); triggerDownload(el.dlSvg); }
-  commit(base);
+  regen();
 });
 
-[el.dlPng, el.dlSvg].forEach((a) =>
-  a.addEventListener("click", () => { if (current) commit(fileBase()); })
-);
+// ---- downloads -------------------------------------------------------------
+el.dlSvg.addEventListener("click", () => {
+  if (!current || el.dlSvg.disabled) return;
+  downloadBlob(new Blob([current.svg], { type: "image/svg+xml" }), current.base + ".svg");
+  commit();
+});
+el.dlPng.addEventListener("click", async () => {
+  if (!current || el.dlPng.disabled) return;
+  el.dlPng.disabled = true;
+  try {
+    const blob = await svgToPng(current.svg, current.w, current.h, 3);
+    downloadBlob(blob, current.base + ".png");
+    commit();
+  } catch (err) {
+    showSave("PNG export failed: " + err.message);
+  } finally {
+    el.dlPng.disabled = !clean(el.product.value);
+  }
+});
 
-function triggerDownload(anchor) {
+function commit() {
+  if (el.numberOn.checked && current.number != null) {
+    if (!current.committed) { current.committed = true; saveNext(current.number + 1); }
+    showSave(`Saved ${current.base}. Next item: ${pad(loadNext())}.`);
+  } else {
+    showSave(`Saved ${current.base}.`);
+  }
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = anchor.href; a.download = anchor.download;
+  a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-function commit(base) {
-  if (!current) return;
-  if (!current.committed) {
-    current.committed = true;
-    saveNext(current.number + 1);
-    el.nextNumber.value = loadNext();
-  }
-  showSave(`Saved ${base}. Next number: ${pad(loadNext())}.`, false);
+function svgToPng(svg, w, h, scale) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("could not rasterise SVG")); };
+    img.src = url;
+  });
 }
-
-function showSave(text, isError) {
-  el.saveMsg.hidden = false;
-  el.saveMsg.textContent = text;
-  el.saveMsg.className = "msg " + (isError ? "err" : "ok");
-}
-
-el.nextBtn.addEventListener("click", () => {
-  if (current) revokeUrls(current);
-  current = null;
-  el.result.hidden = true;
-  el.saveMsg.hidden = true;
-  scanMsg("");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-});
