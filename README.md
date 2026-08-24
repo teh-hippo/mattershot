@@ -68,6 +68,15 @@ trademarked artwork.
 
 It is a static site with no build step. The two libraries are vendored in `vendor/`.
 
+## Support
+
+Use [GitHub issues](https://github.com/teh-hippo/mattershot/issues) for reproducible defects and usage questions.  For defects, include the browser, operating system,
+code type, steps, and expected and observed behaviour without including a real onboarding payload.  For usage questions, describe the intended workflow and any
+message shown by Mattershot.
+
+Device commissioning, vendor registry corrections, ecosystem account support, and browser or operating-system problems that cannot be reproduced in Mattershot
+are outside this project's support scope.
+
 ## Local development
 
 Serve the folder over HTTP (a secure context is needed for the camera; `localhost` counts):
