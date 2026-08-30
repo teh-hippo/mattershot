@@ -66,7 +66,8 @@ The Matter logo is the official mark from
 (public domain). The HomeKit house mark is an original glyph drawn in `label.js`, not Apple's
 trademarked artwork.
 
-It is a static site with no build step. The two libraries are vendored in `vendor/`.
+The site is bundled from npm dependencies during deployment. Third-party source and generated
+bundles are not committed; the deployment artifact includes notices for every bundled package.
 
 ## Support
 
@@ -79,15 +80,17 @@ are outside this project's support scope.
 
 ## Local development
 
-Serve the folder over HTTP (a secure context is needed for the camera; `localhost` counts):
+Install dependencies, run the tests, and build the static site:
 
 ```sh
-python3 -m http.server 8000
-# then open http://localhost:8000
+npm ci
+npm test
+npm run build
 ```
 
-Run the decoder and pairing-code tests with [Bun](https://bun.sh):
+Serve the generated site over HTTP (a secure context is needed for the camera; `localhost` counts):
 
 ```sh
-bun test
+python3 -m http.server 8000 -d dist
+# then open http://localhost:8000
 ```
