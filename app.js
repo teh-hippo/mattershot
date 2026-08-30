@@ -1,3 +1,4 @@
+import jsQR from "jsqr";
 import { parseMatterPayload, manualPairingCode, formatPairingCode } from "./matter.js";
 import { parseHomeKitPayload } from "./homekit.js";
 import { buildLabelSVG } from "./label.js";

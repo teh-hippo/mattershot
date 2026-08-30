@@ -1,3 +1,5 @@
+import QRCode from "qrcode";
+
 // Compose a backup label as a self-contained SVG. Matter and HomeKit share the
 // frame, QR block and footer; each ecosystem has its own header (brand mark plus
 // the human-readable code). The PNG is rasterised from this SVG in app.js.
@@ -44,7 +46,7 @@ function qrPath(m) {
 
 // Centred QR with quiet zone. Returns the y of the QR's bottom edge.
 function drawQR(parts, qrText, y) {
-  const m = window.QRCode.create(qrText, { errorCorrectionLevel: "M" }).modules;
+  const m = QRCode.create(qrText, { errorCorrectionLevel: "M" }).modules;
   const box = m.size + QUIET * 2;
   const s = QR_SIZE / box;
   const qx = W / 2 - QR_SIZE / 2;
